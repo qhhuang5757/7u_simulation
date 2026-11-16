@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ammonia Equilibrium Simulator</title>
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--ink:#172338;--muted:#68778d;--line:#e2e8f0;--blue:#2563eb;--green:#15956b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1120px;margin:28px auto;padding:0 18px 36px}.hero{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:18px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--blue);text-transform:uppercase}.hero h1{font-size:clamp(25px,4vw,38px);line-height:1.12;margin:5px 0 8px}.hero p{margin:0;color:var(--muted);max-width:680px}.equation{white-space:nowrap;background:#e8efff;color:#1e40af;border-radius:14px;padding:12px 16px;font-size:18px;font-weight:750}
+.layout{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);grid-template-areas:"scene counts" "controls rates" "controls molecules";align-items:start;gap:16px}
+.layout>section:first-child{grid-area:scene}
+.layout>.side{display:contents}
+.layout>.side>section:nth-child(1){grid-area:controls}
+.layout>.side>section:nth-child(2){grid-area:counts}
+.layout>.side>section:nth-child(3){grid-area:rates}
+.layout>.side>section:nth-child(4){grid-area:molecules}
+.layout>.side>section:nth-child(n+5){grid-column:2}.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:17px;box-shadow:0 5px 18px #1c35500a}.card h2{font-size:16px;margin:0 0 12px}.stage-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.status{font-size:12px;font-weight:700;padding:5px 10px;border-radius:99px;background:#fff4dc;color:#93600a}.status.eq{background:#e2f7ee;color:#08744f}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;background:#101c2c}#countChart{aspect-ratio:760/250;background:#fff;border:1px solid var(--line)}.legend{display:flex;gap:17px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:12px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:5px}.actions{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}button{border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:#fff;color:var(--ink);font-weight:700;cursor:pointer}button:hover{border-color:#9db6e9;background:#f8faff}button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}button.primary:hover{background:#1d4ed8}button:disabled{opacity:.45;cursor:not-allowed}
+.side{display:flex;flex-direction:column;gap:16px}.control{margin:13px 0}.control-top{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:5px}.control-top strong{font-variant-numeric:tabular-nums}input[type=range]{width:100%;accent-color:var(--blue)}.range-hint{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}.add-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.add-grid button{padding:12px 8px}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.metric{background:#f5f7fb;border-radius:11px;padding:10px;min-width:0}.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{display:block;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.35}.metric small{color:var(--muted);font-size:11px}.atomline{font-size:12px;color:var(--muted);margin-top:9px}.rates{display:grid;grid-template-columns:1fr 1fr;gap:9px}.rate{padding:11px;background:#f5f7fb;border-radius:11px}.rate strong{display:block;font-size:22px}.rate small{color:var(--muted)}.bar{height:9px;background:#edf1f6;border-radius:20px;overflow:hidden;display:flex;margin:12px 0 5px}.bar span:first-child{background:#3986ee}.bar span:last-child{background:#d69a43}.note{background:#f5f7fb;border-radius:11px;padding:11px;font-size:13px;color:#42516a}.footnote{margin-top:8px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;color:var(--muted);font-size:11px;line-height:1.35}.footnote summary{cursor:pointer;font-weight:700;color:#51627a;list-style:none}.footnote summary::-webkit-details-marker{display:none}.footnote[open] summary{margin-bottom:5px}.formula{font-weight:700;color:#263b5b}
+@media(max-width:900px){.layout{grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);grid-template-areas:"scene counts" "controls rates" "controls molecules"}.hero{display:block}.equation{display:inline-block;margin-top:13px}}
+@media(max-width:700px){.layout{display:flex;flex-direction:column}.layout>.side{display:flex;flex-direction:column;width:100%}.layout>.side>section{width:100%}.hero{display:block}.equation{display:inline-block;margin-top:13px}}
+@media(max-width:520px){main{margin-top:17px;padding:0 12px 25px}.card{padding:13px}.side{display:flex}.metrics{gap:6px}.metric{padding:8px}.metric strong{font-size:21px}.actions button{flex:1}}
+
+/* Classroom single-screen dashboard */
+@media(min-width:1000px) and (min-height:720px){
+  main{max-width:1540px;margin:8px auto;padding:0 14px 8px}
+  .hero{margin-bottom:9px;align-items:center;gap:12px}
+  .hero h1{font-size:25px;margin:2px 0 4px}
+  .hero p{font-size:12px;line-height:1.3}
+  .eyebrow{font-size:10px}
+  .equation{font-size:16px;padding:8px 12px}
+  .layout{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"scene counts" "controls rates";
+    grid-template-rows:minmax(0,1.12fr) minmax(0,.88fr);
+    gap:10px;
+    align-items:stretch;
+    height:calc(100vh - 112px);
+    min-height:600px;
+  }
+  .layout>section:first-child{grid-area:scene;min-height:0}
+  .layout>.side{display:contents}
+  .layout>.side>section:nth-child(1){grid-area:controls;min-height:0}
+  .layout>.side>section:nth-child(2){grid-area:counts;min-height:0}
+  .layout>.side>section:nth-child(3){grid-area:rates;min-height:0}
+  .layout>.side>section:nth-child(4){grid-area:molecules}
+  .card{padding:11px;border-radius:13px;overflow:hidden}
+  .card h2{font-size:14px;margin-bottom:7px}
+  .stage-head{margin-bottom:6px}
+  #scene{width:100%;height:calc(100% - 88px);max-height:calc((100vh - 190px)*.58);aspect-ratio:1/1;object-fit:contain}
+  .legend{gap:9px;margin-top:5px;font-size:10px}
+  .actions{margin-top:6px}
+  .actions button{padding:7px 10px;font-size:12px}
+  #countChart,#rateChart{width:100%;height:calc(100% - 90px);min-height:145px;max-height:260px;aspect-ratio:auto}
+  .range-hint{font-size:10px}
+  .atomline{font-size:10px;line-height:1.35;margin-top:5px}
+  .control{margin:7px 0}
+  .control-top{font-size:11px;margin-bottom:2px}
+  .add-grid{gap:6px}
+  .add-grid button{padding:7px 6px;font-size:11px}
+  .compact-diagnostics{margin-top:7px;padding:8px;background:#f8fafc;box-shadow:none}
+  .compact-diagnostics .metrics{gap:6px}
+  .compact-diagnostics .metric{padding:5px}
+  .compact-diagnostics .metric strong{font-size:17px}
+  .compact-diagnostics .atomline{font-size:9px}
+}
+@media(min-width:1000px) and (max-height:719px){
+  main{max-width:1540px;margin:5px auto;padding:0 12px}
+  .hero{margin-bottom:6px}
+  .hero h1{font-size:22px}
+  .hero p{font-size:11px}
+  .layout{grid-template-columns:1fr 1fr;grid-template-areas:"scene counts" "controls rates";grid-template-rows:1fr 1fr;gap:8px}
+  #scene{max-height:380px}
+  .card{padding:9px}
+  .card h2{font-size:13px;margin-bottom:5px}
+  #countChart,#rateChart{max-height:190px}
+}
+@media(max-width:999px){
+  .layout{display:flex;flex-direction:column;height:auto}
+  .layout>.side{display:flex;flex-direction:column;width:100%}
+  .layout>.side>section{width:100%}
+  .layout>section:first-child{width:100%}
+  #scene{max-height:none}
+}
+
+/* Keep the full Conditions panel visible in the single-screen layout */
+@media(min-width:1000px){
+  .layout>.side>section:nth-child(1){
+    overflow:visible!important;
+    min-height:0;
+    padding:9px 11px!important;
+  }
+  .layout>.side>section:nth-child(1) h2{margin-top:8px!important;margin-bottom:5px!important}
+  .layout>.side>section:nth-child(1) .control{margin:5px 0!important}
+  .layout>.side>section:nth-child(1) .control-top{margin-bottom:1px!important}
+  .layout>.side>section:nth-child(1) input[type=range]{height:14px;margin:1px 0}
+  .layout>.side>section:nth-child(1) .range-hint{font-size:9px;line-height:1.1}
+  .layout>.side>section:nth-child(1) .hint{font-size:10px;line-height:1.25;margin:4px 0!important}
+  .layout>.side>section:nth-child(1) .atomline{font-size:9px;line-height:1.2;margin-top:5px!important;padding:6px!important}
+  .layout>.side>section:nth-child(1) .add-grid{gap:4px!important}
+  .layout>.side>section:nth-child(1) .add-grid button{padding:5px 5px!important;font-size:10px!important}
+}
+
+/* Final classroom dashboard: all four panels visible together */
+@media(min-width:1000px) and (min-height:720px){
+  main{max-width:1600px;margin:6px auto;padding:0 12px 6px}
+  .hero{margin-bottom:7px;gap:10px}
+  .hero h1{font-size:23px}
+  .hero p{font-size:11px;line-height:1.25}
+  .equation{font-size:15px;padding:7px 10px}
+  .layout{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"scene counts" "controls rates";
+    grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+    gap:9px;
+    height:calc(100vh - 102px);
+    min-height:610px;
+    max-height:calc(100vh - 102px);
+  }
+  .layout>section:first-child,
+  .layout>.side>section{min-width:0;min-height:0}
+  .layout>.side>section:nth-child(1){grid-area:controls}
+  .layout>.side>section:nth-child(2){grid-area:counts}
+  .layout>.side>section:nth-child(3){grid-area:rates}
+  .card{padding:9px 11px;border-radius:12px}
+  .card h2{font-size:13px;margin:0 0 5px}
+  .stage-head{margin-bottom:4px}
+  #scene{display:block;width:100%;height:calc(100% - 72px);max-height:none;aspect-ratio:auto;object-fit:contain}
+  .legend{gap:6px;margin-top:3px;font-size:9px;line-height:1.15}
+  .actions{margin-top:4px}
+  .actions button{padding:5px 8px;font-size:10px}
+  #countChart,#rateChart{display:block;width:100%;height:calc(100% - 66px);min-height:110px;max-height:none;aspect-ratio:auto}
+  .layout>.side>section:nth-child(3) .atomline{font-size:10px;line-height:1.15;padding:5px!important;margin:3px 0!important}
+  .layout>.side>section:nth-child(3) canvas{height:calc(100% - 82px)}
+  .layout>.side>section:nth-child(1){overflow:auto!important;padding:8px 10px!important}
+  .layout>.side>section:nth-child(1) h2{font-size:13px;margin:3px 0 5px!important}
+  .layout>.side>section:nth-child(1) .add-grid{gap:4px!important;margin-bottom:6px!important}
+  .layout>.side>section:nth-child(1) .add-grid button{padding:5px 5px!important;font-size:10px!important;line-height:1.15}
+  .layout>.side>section:nth-child(1) .control{margin:4px 0!important}
+  .layout>.side>section:nth-child(1) .control-top{font-size:10px;margin-bottom:1px!important}
+  .layout>.side>section:nth-child(1) input[type=range]{height:13px;margin:0}
+  .layout>.side>section:nth-child(1) .range-hint{font-size:9px;line-height:1}
+  .layout>.side>section:nth-child(1) .hint{font-size:9px;line-height:1.15;margin:3px 0!important}
+  .layout>.side>section:nth-child(1) .atomline{font-size:8.5px;line-height:1.15;margin-top:4px!important;padding:5px!important}
+  .compact-diagnostics{margin-top:5px;padding:6px!important}
+  .compact-diagnostics .metrics{gap:4px}
+  .compact-diagnostics .metric{padding:4px}
+  .compact-diagnostics .metric strong{font-size:15px}
+  .compact-diagnostics .metric small{font-size:8px}
+}
+@media(min-width:1000px) and (max-height:719px){
+  .layout{grid-template-areas:"scene counts" "controls rates";grid-template-rows:1fr 1fr;gap:7px}
+  .card{padding:7px}
+  .layout>.side>section:nth-child(1){overflow:auto!important}
+  #countChart,#rateChart{min-height:95px}
+}
+
+/* Final clarity tweaks */
+@media(min-width:1000px){
+  .compact-diagnostics h2{font-size:12px!important;margin-bottom:4px!important}
+  .compact-diagnostics .atomline{font-size:8.5px!important;line-height:1.18!important}
+  .compact-diagnostics .metric span{font-size:8px}
+  .compact-diagnostics .metric strong{font-size:14px!important}
+  .compact-diagnostics .metric small{font-size:8px}
+  .layout>.side>section:nth-child(1){scrollbar-width:thin}
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div><div class="eyebrow">Interactive chemistry lab</div><h1>Ammonia Equilibrium Simulator</h1><p>Explore reversible reactions by changing the gas composition, temperature and pressure. Watch molecules move, collide and react inside a closed container.</p></div>
+    <div class="equation">N₂ + 3H₂ ⇌ 2NH₃</div>
+  </header>
+  <div class="layout">
+    <section class="card">
+      <div class="stage-head"><h2 style="margin:0">Molecular container</h2><span class="status" id="status">● Reaction in progress</span></div>
+      <canvas id="scene" width="1200" height="1200" aria-label="Animated gas molecules inside a large square container"></canvas>
+      <div class="legend">
+        <span><i class="dot" style="background:#4599ff"></i>N atom</span>
+        <span><i class="dot" style="background:#f3f5fa;border:1px solid #aab5c5"></i>H atom</span>
+        <span><i class="dot" style="background:#9aa6b5"></i>Fe catalyst surface (after addition)</span>
+        <span>Add Fe catalyst to introduce the surface and speed up reactions nearby.</span>
+      </div>
+      <div class="actions"><button class="primary" id="pause">Ⅱ Pause</button><button id="reset">↻ Reset simulation</button></div>
+    </section>
+    <aside class="side">
+      <section class="card">
+        <h2>Add / remove molecules</h2>
+        <div class="add-grid" style="margin-bottom:12px">
+          <button id="addCatalyst" type="button">＋ Add Fe catalyst</button>
+          <button id="removeCatalyst" type="button" disabled>− Remove Fe catalyst</button>
+        </div>
+        <div class="add-grid">
+          <button id="addH">＋ Add H₂ (270)</button>
+          <button id="removeH">− Remove H₂ (270)</button>
+          <button id="addN">＋ Add N₂ (90)</button>
+          <button id="removeN">− Remove N₂ (90)</button>
+          <button id="addA">＋ Add NH₃ (180)</button>
+          <button id="removeA">− Remove NH₃ (180)</button>
+        </div>
+        <div class="atomline">Adding or removing a substance disturbs equilibrium; the system then shifts to oppose that change.</div>
+        <h2 style="margin-top:19px">Conditions</h2>
+        <div class="control"><div class="control-top"><label for="temp">Temperature</label><strong id="tempVal">300 K</strong></div><input id="temp" type="range" min="100" max="1000" step="10" value="300"><div class="range-hint"><span>100 K</span><span>1000 K</span></div></div>
+        <div class="control"><div class="control-top"><label for="pressure">Pressure</label><strong id="pressureVal">1.0 atm</strong></div><input id="pressure" type="range" min="0.5" max="3" step="0.1" value="1"><div class="range-hint"><span>0.5 atm</span><span>3.0 atm</span></div></div><div class="hint">Increasing pressure compresses the gas: equilibrium shifts right, towards NH₃ (fewer gas molecules).</div>
+        <div class="atomline" style="margin-top:9px"><b>Fe catalyst:</b> click Add Fe catalyst to introduce the iron catalyst surface into the container. Once added, it lowers activation energy and speeds up both forward and reverse reactions without changing Kp, Kc, or the equilibrium position.</div>
+      <section class="card compact-diagnostics">
+        <h2>Molecule counts</h2>
+        <div class="metrics">
+          <div class="metric"><span>N₂</span><strong id="nCount">0</strong><small>Nitrogen</small></div>
+          <div class="metric"><span>H₂</span><strong id="hCount">0</strong><small>Hydrogen</small></div>
+          <div class="metric"><span>NH₃</span><strong id="aCount">0</strong><small>Ammonia</small></div>
+        </div>
+        <div class="atomline">Total molecules: <b id="totalCount">0</b><br>Atoms conserved: <b id="atoms">0 N + 0 H</b></div>
+        <div class="atomline" style="margin-top:10px;padding:10px;border-radius:10px;background:#f4f7fb">
+          Temperature-dependent equilibrium<br>
+          <b id="kpValue">Kp = 5.60 × 10⁵</b><br>
+          <b id="kcValue">Kc = —</b> <span>((mol/L)⁻² convention)</span><br>
+          <b id="qValue">Qp = 0</b><br>
+          <span id="qDirection">Qp &lt; Kp: forward reaction is favoured</span>
+        </div>
+        <div class="atomline" style="margin-top:8px;padding:10px;border-radius:10px;background:#f8fafc">
+          <b>Predicted equilibrium composition (ideal gas)</b><br>
+          Molecule counts: N₂ <b id="eqN">—</b> · H₂ <b id="eqH">—</b> · NH₃ <b id="eqA">—</b><br>
+          Concentrations (mol/L): [N₂] <b id="eqCN">—</b> · [H₂] <b id="eqCH">—</b> · [NH₃] <b id="eqCA">—</b>
+        </div>
+        <div class="atomline">Kp estimate: 298 K = 5.6×10⁵; 400 K ≈ 45; 500 K = 0.18; 600 K ≈ 4.5×10⁻³; 700 K ≈ 3.3×10⁻⁴. Values use the integrated van't Hoff approximation.</div>
+      </section></section>
+      <section class="card wide">
+        <h2>Particle counts over time</h2>
+        <div class="legend" style="margin:0 0 8px">
+          <span><i class="dot" style="background:#3986ee"></i>N₂</span>
+          <span><i class="dot" style="background:#15956b"></i>H₂</span>
+          <span><i class="dot" style="background:#d69a43"></i>NH₃</span>
+        </div>
+        <canvas id="countChart" width="760" height="250" aria-label="Live line chart showing N2, H2 and NH3 molecule counts over simulation time"></canvas>
+        <div class="range-hint" style="margin-top:6px"><span>← Earlier</span><span>Simulation time (s) →</span></div>
+        <div class="atomline">The graph updates as molecules react. Pause freezes both the simulation and the chart.</div>
+      </section>
+      <section class="card wide">
+        <h2>Forward and backward reaction rates</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 12px">
+          <div class="atomline"><span style="color:#d45b12;font-weight:700">Forward rate</span><br><b id="forwardRate">0.00</b> normalised theoretical rate</div>
+          <div class="atomline"><span style="color:#f02020;font-weight:700">Backward rate</span><br><b id="backwardRate">0.00</b> normalised theoretical rate</div>
+        </div>
+        <canvas id="rateChart" width="760" height="220" aria-label="Forward and backward reaction rates over simulation time"></canvas>
+        <div class="range-hint" style="margin-top:6px"><span>← Earlier</span><span>Simulation time (s) →</span></div>
+        <div class="atomline">The particle-count chart is the reference for equilibrium timing. Following the Siyavula rate-time model, each disturbance produces an immediate rate change, followed by a smooth adjustment until the rates become equal again. Adding N2 or H2 immediately raises only the forward rate; as NH3 forms, backward rises and forward falls. Adding NH3 immediately raises only backward; as NH3 is consumed, forward rises and backward falls. Removing N2 or H2 immediately lowers forward; the reverse reaction then restores reactants, so forward rises and backward falls. Removing NH3 immediately lowers backward; the forward reaction reforms NH3, so backward rises and forward falls. Pressure and temperature changes immediately affect both rates, with the favoured direction changing more. The new common equilibrium rate depends on the new composition and conditions. Temperature dependence uses an illustrative Arrhenius factor because measured activation-energy data were not supplied. Qp/Kp remains visible as a chemistry diagnostic.</div>
+      </section>
+
+      
+    </aside>
+  </div>
+  <details class="footnote"><summary>Model note</summary><div>This is an educational, stochastic particle illustration rather than a quantitatively calibrated molecular-dynamics simulation. At equilibrium, molecules continue moving and colliding. In a real system, instantaneous particle counts can fluctuate. The Haber process is exothermic, so increasing temperature favours the reverse direction.</div></details>
+</main>
+<script>
+(()=>{
+ const $=id=>document.getElementById(id),canvas=$('scene'),ctx=canvas.getContext('2d');
+ const W=1200,H=1200;let molecules=[],paused=false,temp=300,pressure=1,fwd=0,rev=0,eq=false,lastReaction=0,lastFrame=0,lastUI=0,flashes=[],simTime=0,history=[],chartClock=0,chartTimeOrigin=0,eqNext='forward',eqStartTime=0,eqStartFwd=0,eqStartRev=0,shiftToProduct=false,lastPerturbationTime=0,rateHistory=[],rateSampleTime=0,rateSampleFwd=0,rateSampleRev=0;
+ let catalystVisible=false,forwardRateNow=0,backwardRateNow=0,rateModelStart=0,rateModelDirection=1,rateModelAmplitude=0.75,rateModelBase=0.25,rateModelInitial=null,rateModelTarget=null,rateModelScale=1,rateModelRawInitial=null,rateModelRawTarget=null,rateModelEquilibriumDisplay=0.22,rateModelScaleInitialized=false,rateSegmentStartT=0;
+ let rateChartSuppressed=false;eqRateBlendStart=null,eqRateBlendFromF=0,eqRateBlendFromB=0;equilibriumTime=null;
+ const colors={N:'#4599ff',H:'#f3f5fa'},rand=(a,b)=>a+Math.random()*(b-a);
+ const K_P_REF=5.6e5,T_REF=298.15,DELTA_H=-91800,R_GAS=8.314;
+ const R_BAR=0.08314462618,P_STANDARD=1.0;
+ function equilibriumKp(T=temp){
+  // Integrated van't Hoff approximation anchored at Kp=5.6e5 (298.15 K)
+  // and Kp≈0.18 (500 K), with ΔH°≈−91.8 kJ mol−1.
+  return K_P_REF*Math.exp((-DELTA_H/R_GAS)*(1/T-1/T_REF));
+ }
+ function equilibriumKc(T=temp){
+  // For N2 + 3H2 ⇌ 2NH3, Δn = −2:
+  // Kp = Kc (RT c°/p°)^−2, hence Kc = Kp (RT c°/p°)^2.
+  return equilibriumKp(T)*Math.pow(R_BAR*T/P_STANDARD,2);
+ }
+ function area(){return{x:40,y:45,w:1120,h:1110/pressure}}
+ function counts(){return{N:molecules.filter(m=>m.type==='N2').length,H:molecules.filter(m=>m.type==='H2').length,A:molecules.filter(m=>m.type==='NH3').length}}
+ function reactionQuotient(){
+  const c=counts(),total=c.N+c.H+c.A;
+  if(total<=0)return 0;
+  const pTotal=pressure*1.01325; // atm -> bar
+  const pN=(c.N/total)*pTotal/P_STANDARD;
+  const pH=(c.H/total)*pTotal/P_STANDARD;
+  const pA=(c.A/total)*pTotal/P_STANDARD;
+  if(pN<=0||pH<=0)return pA>0?Infinity:0;
+  return (pA*pA)/(pN*Math.pow(pH,3));
+ }
+ function speciesPartialPressures(c){
+  const scale=(temp/300)*pressure*1.01325/1000;
+  return{N:c.N*scale,H:c.H*scale,A:c.A*scale};
+ }
+ function equilibriumComposition(){
+  const c=counts(),kp=equilibriumKp();
+  const lo0=-c.A/2,hi0=Math.min(c.N,c.H/3);
+  const qAt=xi=>{
+   const n=c.N-xi,h=c.H-3*xi,a=c.A+2*xi;
+   const p=speciesPartialPressures({N:n,H:h,A:a});
+   if(p.N<=0||p.H<=0)return p.A>0?Infinity:0;
+   if(p.A<=0)return 0;
+   return(p.A*p.A)/(p.N*Math.pow(p.H,3));
+  };
+  let lo=lo0,hi=hi0;
+  if(hi<=lo){
+   const p=speciesPartialPressures(c);
+   return{N:c.N,H:c.H,A:c.A,xi:0,cN:p.N,cH:p.H,cA:p.A};
+  }
+  if(qAt(lo)>=kp)hi=lo;
+  else if(qAt(hi)<=kp)lo=hi;
+  else{
+   for(let i=0;i<80;i++){
+    const mid=(lo+hi)/2;
+    if(qAt(mid)<kp)lo=mid;else hi=mid;
+   }
+  }
+  const xi=(lo+hi)/2,n=c.N-xi,h=c.H-3*xi,a=c.A+2*xi;
+  const p=speciesPartialPressures({N:n,H:h,A:a});
+  return{N:n,H:h,A:a,xi,cN:p.N,cH:p.H,cA:p.A};
+ }
+ function quotientForCounts(c){
+  const p=speciesPartialPressures(c);
+  if(p.N<=0||p.H<=0)return p.A>0?Infinity:0;
+  return(p.A*p.A)/(p.N*Math.pow(p.H,3));
+ }
+ function countTrendIsStable(){
+  const segment=history.filter(v=>v.t>=rateSegmentStartT-1e-9);
+  if(segment.length<8)return false;
+  const w=segment.slice(-8),mid=4;
+  for(const key of ['N','H','A']){
+   const earlier=w.slice(0,mid).reduce((sum,v)=>sum+v[key],0)/mid;
+   const later=w.slice(mid).reduce((sum,v)=>sum+v[key],0)/mid;
+   const tolerance=Math.max(2.5,Math.max(earlier,later)*0.025);
+   if(Math.abs(later-earlier)>tolerance)return false;
+  }
+  return true;
+ }
+ function updateEquilibriumState(){
+  const latest=history.length?history[history.length-1]:counts();
+  const q=quotientForCounts(latest),currentKp=equilibriumKp(),currentKc=equilibriumKc();
+  const stable=countTrendIsStable();
+  // Particle-count plateau is the single master equilibrium clock.
+  // Latch its exact chart timestamp once detected; never let small count
+  // fluctuations make the rate module leave/re-enter equilibrium.
+  if(!eq && stable){
+   eq=true;
+   equilibriumTime=latest.t;
+   rebuildRateHistoryAtEquilibrium();
+  }
+  shiftToProduct=q<currentKp;
+  $('kpValue').textContent='Kp = '+currentKp.toExponential(2);
+  $('kcValue').textContent='Kc = '+currentKc.toExponential(2);
+  if(!Number.isFinite(q))$('qValue').textContent='Qp = ∞';
+  else $('qValue').textContent='Qp = '+q.toExponential(2);
+  $('qDirection').textContent=eq?'Dynamic equilibrium: particle counts stable; forward rate = backward rate':q<currentKp?'Qp < Kp: forward reaction is favoured':q>currentKp?'Qp > Kp: backward reaction is favoured':'Qp ≈ Kp: checking particle-count stability';
+  const target=equilibriumComposition();
+  $('eqN').textContent=Number(target.N||0).toFixed(1);
+  $('eqH').textContent=Number(target.H||0).toFixed(1);
+  $('eqA').textContent=Number(target.A||0).toFixed(1);
+  $('eqCN').textContent=Number(target.cN||0).toFixed(3);
+  $('eqCH').textContent=Number(target.cH||0).toFixed(3);
+  $('eqCA').textContent=Number(target.cA||0).toFixed(3);
+ }
+ function create(type,x,y){
+  const atoms=type==='N2'?[['N',-9,0],['N',9,0]]:type==='H2'?[['H',-7,0],['H',7,0]]:[['N',0,-2],['H',-12,10],['H',12,10],['H',0,15]];
+  const speed=rand(100,190)*Math.sqrt(temp/300);
+  const a=area();return{type,x:x??rand(a.x+18,a.x+a.w-18),y:y??rand(a.y+18,a.y+a.h-18),vx:rand(-1,1)*speed,vy:rand(-1,1)*speed,atoms,angle:rand(0,Math.PI*2),spin:rand(-1.3,1.3)};
+ }
+ function maintainTemperature(){
+  if(molecules.length===0)return;
+  // Keep the ensemble RMS translational speed fixed for a given temperature.
+  // Collisions may redistribute speeds between molecules, but total kinetic
+  // energy (and therefore the displayed gas temperature) remains constant.
+  let sumSquares=0;
+  for(const m of molecules)sumSquares+=m.vx*m.vx+m.vy*m.vy;
+  const currentRms=Math.sqrt(sumSquares/molecules.length);
+  const targetRms=145*Math.sqrt(temp/300);
+  if(currentRms<1e-8)return;
+  const scale=targetRms/currentRms;
+  for(const m of molecules){m.vx*=scale;m.vy*=scale}
+ }
+ function disturbEquilibrium(shiftRight){
+  eq=false;
+  lastPerturbationTime=simTime;
+  lastReaction=performance.now();
+  updateEquilibriumState();
+ }
+ function add(type,n=1){
+  rateChartSuppressed=false;
+  if(!Number.isFinite(n)||n<=0)return;
+  const before=counts();
+  const oldF=forwardRateNow,oldB=backwardRateNow;
+  const a=area(),amount=Math.floor(n);
+  if(amount<=0)return;
+  for(let i=0;i<amount;i++){
+   molecules.push(create(type,rand(a.x+18,a.x+a.w-18),rand(a.y+18,a.y+a.h-18)));
+  }
+  const after=counts();
+  let jumpF=oldF,jumpB=oldB;
+
+  // Instantaneous mass-action jump: only the rate involving the added
+  // species changes at the moment of addition.
+  if(type==='N2'){
+   const factor=before.N>0?after.N/before.N:1.5;
+   jumpF=(after.N>0&&after.H>0)?Math.max(oldF,0.72)*factor:0;
+  }else if(type==='H2'){
+   const factor=before.H>0?Math.pow(after.H/before.H,3):1.5;
+   jumpF=(after.H>0&&after.N>0)?Math.max(oldF,0.72)*factor:0;
+  }else if(type==='NH3'){
+   const factor=before.A>0?Math.pow(after.A/before.A,2):1;
+   jumpB=after.A>0?Math.max(oldB,0.20)*factor:0;
+  }
+  jumpF=Math.max(0,Math.min(1.35,jumpF));
+  jumpB=Math.max(0,Math.min(1.35,jumpB));
+
+  // Reactant addition: forward jumps up; backward stays continuous, then
+  // rises as NH3 is produced. Product addition is the mirror image.
+  disturbEquilibrium(type==='N2'||type==='H2');
+  resetTheoreticalRateModel({f:jumpF,b:jumpB});
+  update();
+ }
+ function remove(type,n=1){
+  rateChartSuppressed=false;
+  if(!Number.isFinite(n)||n<=0)return;
+  const before=counts(),matching=[];
+  molecules.forEach((m,i)=>{if(m.type===type)matching.push(i)});
+  const chosen=matching.sort(()=>Math.random()-.5).slice(0,Math.floor(n));
+  if(chosen.length===0)return;
+
+  const oldF=forwardRateNow,oldB=backwardRateNow;
+  for(const index of chosen)molecules[index]=null;
+  molecules=molecules.filter(Boolean);
+  const after=counts();
+  let jumpF=oldF,jumpB=oldB;
+
+  // Removing a reactant instantly lowers forward rate; reverse then
+  // becomes favoured, so forward recovers while backward falls.
+  // Removing product instantly lowers backward rate; forward then dominates,
+  // so forward falls while backward recovers as product reforms.
+  if(type==='N2'){
+   const factor=before.N>0?after.N/before.N:0;
+   jumpF=(after.N>0&&after.H>0)?oldF*factor:0;
+  }else if(type==='H2'){
+   const factor=before.H>0?Math.pow(after.H/before.H,3):0;
+   jumpF=(after.H>0&&after.N>0)?oldF*factor:0;
+  }else if(type==='NH3'){
+   const factor=before.A>0?Math.pow(after.A/before.A,2):0;
+   jumpB=after.A>0?oldB*factor:0;
+  }
+  jumpF=Math.max(0,Math.min(1.35,jumpF));
+  jumpB=Math.max(0,Math.min(1.35,jumpB));
+
+  disturbEquilibrium(type==='NH3');
+  resetTheoreticalRateModel({f:jumpF,b:jumpB});
+  update();
+ }
+    function product(type,x,y){const a=area();return create(type,Math.max(a.x+18,Math.min(a.x+a.w-18,x)),Math.max(a.y+18,Math.min(a.y+a.h-18,y)))}
+ function flash(x,y,color){flashes.push({x,y,t:0,color})}
+ function reactOnCollision(p,q){
+  // A reaction is possible only when the required molecules actually collide.
+  const midX=(p.x+q.x)/2,midY=(p.y+q.y)/2;
+  let direction=null, chosen=[];
+  const c=counts();
+  const forwardPair=(p.type==='N2'&&q.type==='H2')||(q.type==='N2'&&p.type==='H2');
+  const reversePair=p.type==='NH3'&&q.type==='NH3';
+
+  // No other collision pair is allowed to initiate a chemical reaction.
+  if(!forwardPair&&!reversePair)return false;
+
+  const qNow=reactionQuotient();
+  const ratio=Number.isFinite(qNow)?qNow/equilibriumKp():(qNow===Infinity?1e9:0);
+  // At Qp = Kp, both collision-triggered directions have the same
+  // acceptance probability. Qp < Kp favours forward; Qp > Kp favours reverse.
+  // Faster kinetics: a higher chance that an eligible collision reacts.
+  // The Qc/Kc dependence is preserved, so the preferred direction is unchanged.
+  const bedY=area().y+area().h-25;
+  const nearIronSurface=catalystVisible&&midY>bedY-75;
+  // Fe lowers the activation barrier for both directions equally.
+  // It changes reaction speed, not Kp, Kc, or equilibrium composition.
+  const catalyticFactor=catalystVisible&&nearIronSurface?1.65:1.0;
+  const baseProbability=0.72*catalyticFactor;
+  const forwardProbability=baseProbability*2/(1+Math.max(0,ratio));
+  const backwardProbability=baseProbability*2*ratio/(1+Math.max(0,ratio));
+  if(forwardPair&&Math.random()<Math.min(0.95,forwardProbability))direction='forward';
+  if(reversePair&&Math.random()<Math.min(0.95,backwardProbability))direction='reverse';
+
+  if(direction==='forward'){
+   const nMol=p.type==='N2'?p:q;
+   const hMol=p.type==='H2'?p:q;
+   const nearby=molecules
+    .filter(m=>m!==nMol&&m!==hMol&&m.type==='H2')
+    .map(m=>({m,d:Math.hypot(m.x-midX,m.y-midY)}))
+    .filter(v=>v.d<125)
+    .sort((a,b)=>a.d-b.d);
+   if(nearby.length<2)return false;
+   // One N2 + three H2 are consumed for every forward event.
+   // The initiating collision must be specifically N2-H2; two additional
+   // H2 molecules must also be present nearby to satisfy the balanced equation.
+   chosen=[nMol,hMol,nearby[0].m,nearby[1].m];
+   const gone=new Set(chosen);
+   molecules=molecules.filter(m=>!gone.has(m));
+   molecules.push(product('NH3',midX-13,midY),product('NH3',midX+13,midY));
+   fwd++;flash(midX,midY,'#7ed7a2');
+
+   lastReaction=performance.now();
+   return true;
+  }
+  if(direction==='reverse'){
+   chosen=[p,q];
+   const gone=new Set(chosen);
+   molecules=molecules.filter(m=>!gone.has(m));
+   // Two colliding NH3 molecules produce exactly one N2 + three H2.
+   molecules.push(product('N2',midX-15,midY),product('H2',midX+15,midY-8),product('H2',midX+15,midY+8),product('H2',midX,midY+17));
+   rev++;flash(midX,midY,'#e5b66e');
+
+   lastReaction=performance.now();
+   return true;
+  }
+  return false;
+ }
+ function move(dt){
+  const a=area();
+  // First advance every molecule and reflect it from the container walls.
+  for(const p of molecules){
+   p.x+=p.vx*dt;
+   p.y+=p.vy*dt;
+   p.angle+=p.spin*dt;
+   if(p.x<a.x+9){p.x=a.x+9;p.vx=Math.abs(p.vx)}
+   if(p.x>a.x+a.w-9){p.x=a.x+a.w-9;p.vx=-Math.abs(p.vx)}
+   if(p.y<a.y+9){p.y=a.y+9;p.vy=Math.abs(p.vy)}
+   if(p.y>a.y+a.h-9){p.y=a.y+a.h-9;p.vy=-Math.abs(p.vy)}
+  }
+
+  // Spatial grid avoids testing every possible pair (important with 360+ molecules).
+  const cellSize=28,grid=new Map();
+  const cellKey=(cx,cy)=>cx+','+cy;
+  for(let i=0;i<molecules.length;i++){
+   const p=molecules[i],cx=Math.floor(p.x/cellSize),cy=Math.floor(p.y/cellSize);
+   const key=cellKey(cx,cy);
+   if(!grid.has(key))grid.set(key,[]);
+   grid.get(key).push(i);
+  }
+
+  const checked=new Set(),reactionCandidates=[];
+  for(const [key,indices] of grid){
+   const [cx,cy]=key.split(',').map(Number);
+   for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=1;oy++){
+    const neighbors=grid.get(cellKey(cx+ox,cy+oy));
+    if(!neighbors)continue;
+    for(const i of indices)for(const j of neighbors){
+     if(j<=i)continue;
+     const pairKey=i+':'+j;if(checked.has(pairKey))continue;checked.add(pairKey);
+     const p=molecules[i],q=molecules[j];
+     const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy);
+     if(d<9.33&&d>0){
+      const nx=dx/d,ny=dy/d;
+      const rel=(p.vx-q.vx)*nx+(p.vy-q.vy)*ny;
+      if(rel>0){
+       p.vx-=rel*nx*.9;p.vy-=rel*ny*.9;
+       q.vx+=rel*nx*.9;q.vy+=rel*ny*.9;
+       const isForward=(p.type==='N2'&&q.type==='H2')||(q.type==='N2'&&p.type==='H2');
+       const isReverse=p.type==='NH3'&&q.type==='NH3';
+       if(isForward||isReverse)reactionCandidates.push([p,q]);
+      }
+     }
+    }
+   }
+  }
+  // Permit up to four successful collision-triggered reactions per frame for faster equilibration.
+  let successfulReactions=0;
+  for(const pair of reactionCandidates){
+   if(successfulReactions>=4)break;
+   if(molecules.includes(pair[0])&&molecules.includes(pair[1])&&reactOnCollision(pair[0],pair[1]))successfulReactions++;
+  }
+  maintainTemperature();
+ }
+ function draw(){
+  ctx.clearRect(0,0,W,H);const a=area();ctx.fillStyle='#101c2c';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#8295ad';ctx.lineWidth=3;ctx.strokeRect(a.x,a.y,a.w,a.h);
+  ctx.fillStyle='#7c91aa';ctx.font='12px sans-serif';ctx.fillText('GAS CONTAINER',28,15);
+  ctx.fillStyle='#8295ad';ctx.fillRect(a.x-3,a.y-6,a.w+6,6);
+  const bedY=a.y+a.h-25;
+  if(catalystVisible){
+  // Finely divided iron catalyst bed along the container floor.
+  ctx.fillStyle='rgba(115,128,145,.22)';ctx.fillRect(a.x+2,bedY,a.w-4,23);
+  for(let ix=0;ix<Math.floor((a.w-24)/18);ix++){
+   for(let row=0;row<2;row++){
+    const fx=a.x+14+ix*18+(row?7:0),fy=bedY+6+row*10;
+    ctx.beginPath();ctx.arc(fx,fy,4.2,0,Math.PI*2);
+    ctx.fillStyle=(ix+row)%3===0?'#d6dde6':'#8795a6';ctx.fill();
+    ctx.strokeStyle='#e3e8ef';ctx.lineWidth=.8;ctx.stroke();
+   }
+  }
+  ctx.fillStyle='#dce4ed';ctx.font='bold 14px sans-serif';
+  ctx.fillText('FINELY DIVIDED Fe CATALYST',a.x+12,bedY-7);
+  }
+  for(const m of molecules){
+   ctx.save();ctx.translate(m.x,m.y);ctx.rotate(m.angle);
+   if(m.type==='NH3'){ctx.strokeStyle='#9caec0';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,-1);ctx.lineTo(-6,5);ctx.moveTo(0,-1);ctx.lineTo(6,5);ctx.moveTo(0,-1);ctx.lineTo(0,7.5);ctx.stroke()}
+   else{ctx.strokeStyle='#899bad';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-3.5,0);ctx.lineTo(3.5,0);ctx.stroke()}
+   for(const at of m.atoms){ctx.beginPath();ctx.arc(at[1]*.75,at[2]*.75,at[0]==='N'?3.47:2.73,0,Math.PI*2);ctx.fillStyle=colors[at[0]];ctx.fill();ctx.strokeStyle=at[0]==='N'?'#9dc9ff':'#aebbc9';ctx.lineWidth=1;ctx.stroke()}
+   ctx.restore();
+  }
+  for(const f of flashes){ctx.beginPath();ctx.arc(f.x,f.y,7+f.t*40,0,Math.PI*2);ctx.strokeStyle=f.color;ctx.globalAlpha=Math.max(0,1-f.t);ctx.lineWidth=3;ctx.stroke();ctx.globalAlpha=1}
+ }
+
+ function recordChart(){
+  const raw=counts();
+  const prev=history[history.length-1];
+  const alpha=0.32;
+  const c=prev?{
+   N:prev.N+alpha*(raw.N-prev.N),
+   H:prev.H+alpha*(raw.H-prev.H),
+   A:prev.A+alpha*(raw.A-prev.A)
+  }:raw;
+  history.push({t:simTime-chartTimeOrigin,N:c.N,H:c.H,A:c.A});
+  if(history.length>180)history.shift();
+ }
+ function drawChart(){
+  const el=$('countChart');if(!el)return;
+  const g=el.getContext('2d'),w=el.width,h=el.height,p={l:48,r:14,t:15,b:34};
+  g.clearRect(0,0,w,h);g.fillStyle='#fff';g.fillRect(0,0,w,h);
+  const maxCount=Math.max(10,...history.map(v=>Math.max(v.N,v.H,v.A)));
+  const ymax=Math.ceil(maxCount/10)*10;
+  const x0=p.l,x1=w-p.r,y0=h-p.b,y1=p.t;
+  g.font='11px system-ui';g.textAlign='right';g.textBaseline='middle';
+  g.strokeStyle='#e7edf4';g.lineWidth=1;
+  for(let i=0;i<=4;i++){
+   const y=y0-(y0-y1)*i/4;g.beginPath();g.moveTo(x0,y);g.lineTo(x1,y);g.stroke();
+   g.fillStyle='#68778d';g.fillText(String(Math.round(ymax*i/4)),x0-8,y);
+  }
+  g.strokeStyle='#b8c4d3';g.beginPath();g.moveTo(x0,y1);g.lineTo(x0,y0);g.lineTo(x1,y0);g.stroke();
+  g.textAlign='center';g.textBaseline='top';g.fillStyle='#68778d';
+  g.fillText('Time (s)',(x0+x1)/2,h-21);
+  g.save();g.translate(12,(y0+y1)/2);g.rotate(-Math.PI/2);
+  g.textAlign='center';g.textBaseline='middle';g.fillStyle='#68778d';
+  g.fillText('Rate (normalised units)',0,0);g.restore();
+  if(history.length<2){
+   g.textAlign='center';g.fillText('Run the simulation to plot particle counts',(x0+x1)/2,(y0+y1)/2);return;
+  }
+  const t0=history[0].t,t1=Math.max(t0+1,history[history.length-1].t);
+  const series=[['N','#3986ee'],['H','#15956b'],['A','#d69a43']];
+  for(const [key,color] of series){
+   g.strokeStyle=color;g.lineWidth=2.5;g.lineJoin='round';g.beginPath();
+   history.forEach((v,i)=>{
+    const x=x0+(v.t-t0)/(t1-t0)*(x1-x0),y=y0-v[key]/ymax*(y0-y1);
+    if(i===0)g.moveTo(x,y);else g.lineTo(x,y);
+   });g.stroke();
+  }
+  g.textAlign='center';g.textBaseline='top';g.fillStyle='#68778d';
+  for(let i=0;i<=4;i++){
+   const val=t0+(t1-t0)*i/4;
+   g.fillText(val.toFixed(0),x0+(x1-x0)*i/4,y0+5);
+  }
+ }
+
+
+ function resetTheoreticalRateModel(rateOverride=null){
+  const c=counts(),target=equilibriumComposition();
+  rateModelStart=simTime;
+  rateSegmentStartT=simTime-chartTimeOrigin;
+  rateModelInitial={N:c.N,H:c.H,A:c.A};
+  rateModelTarget={N:target.N,H:target.H,A:target.A};
+  rateModelBase=catalystVisible?1.6:1.0;
+
+  // Fix one display scale at the beginning of a full run. Later stresses
+  // retain it, so rate jumps and new equilibrium rates remain comparable.
+  if(!rateModelScaleInitialized){
+   // Establish the display scale from the initial forward rate before any
+   // normalisation. Keep a tiny positive floor so rates cannot collapse to 0
+   // through division by an uninitialised/underflowed scale.
+   rateModelScale=1;
+   const seed=theoreticalMassActionRates(rateModelInitial,rateModelBase);
+   rateModelScale=Math.max(Math.abs(seed.f),Math.abs(seed.b),1e-30);
+   rateModelScaleInitialized=true;
+  }
+  const physicalInitial=theoreticalMassActionRates(rateModelInitial,rateModelBase);
+  const physicalTarget=theoreticalMassActionRates(rateModelTarget,rateModelBase);
+
+  // Classroom display mapping: the dimensional mass-action values for this
+  // tiny particle-count model are extremely small and can hide the reverse
+  // curve on a 0–1 teaching axis. Keep the correct zero at the initial state
+  // when NH3 is absent, but give any present species a visible rate floor.
+  // These are normalised teaching units, not measured absolute rates.
+  const hasReactants=c.N>0&&c.H>0;
+  const hasProduct=c.A>0;
+  rateModelRawInitial=rateOverride?{
+   f:Math.max(0,Math.min(1.35,rateOverride.f)),
+   b:Math.max(0,Math.min(1.35,rateOverride.b))
+  }:{
+   f:hasReactants?Math.max(0.72,Math.min(1.05,physicalInitial.f)):0,
+   b:hasProduct?Math.max(0.20,Math.min(1.05,physicalInitial.b)):0
+  };
+  rateModelRawTarget={
+   f:Math.max(0.42,Math.min(0.78,physicalTarget.f)),
+   b:Math.max(0.42,Math.min(0.78,physicalTarget.b))
+  };
+
+  // Keep the existing timeline. A stress creates a second point at the same
+  // time: the old point is the pre-stress rate, the new point is the sharp
+  // post-stress rate, exactly as in a textbook rate-time graph.
+  eq=false;
+  equilibriumTime=null;
+  chartClock=simTime;
+  const t=simTime-chartTimeOrigin;
+  const initial=rateCurveAt(t);
+  forwardRateNow=initial.f;
+  backwardRateNow=initial.b;
+  if(!Number.isFinite(forwardRateNow)||!Number.isFinite(backwardRateNow)){
+   const safeF=rateModelRawInitial?.f??0;
+   const safeB=rateModelRawInitial?.b??0;
+   forwardRateNow=Math.max(0,safeF);
+   backwardRateNow=Math.max(0,safeB);
+  }
+
+  history.push({t,N:c.N,H:c.H,A:c.A});
+  rateHistory.push({t,f:forwardRateNow,b:backwardRateNow});
+  if(history.length>180)history.shift();
+  if(rateHistory.length>180)rateHistory.shift();
+
+  $('forwardRate').textContent=forwardRateNow.toFixed(3);
+  $('backwardRate').textContent=backwardRateNow.toFixed(3);
+  drawChart();
+  drawRateChart();
+ }
+ function theoreticalMassActionRates(c,kineticFactor){
+  // At fixed container volume, each species' partial pressure is proportional
+  // to its own molecule count (not its mole fraction). The pressure control
+  // scales all partial pressures together through compression/expansion.
+  const partial=speciesPartialPressures(c);
+  const pN=partial.N,pH=partial.H,pA=partial.A;
+  const kp=equilibriumKp();
+
+  // Qualitative Arrhenius factor: heating raises both kinetic rates.
+  // Combined with the exothermic reaction's falling Kp on heating, the
+  // reverse (endothermic) rate responds more strongly.
+  const activationEnergy=45000;
+  const arrhenius=Math.exp((-activationEnergy/8.314)*(1/temp-1/298.15));
+  const commonKinetic=kineticFactor*arrhenius;
+  const f=commonKinetic*pN*Math.pow(pH,3);
+  const b=commonKinetic*(pA*pA)/kp;
+  return{f:f/rateModelScale,b:b/rateModelScale};
+ }
+ function theoreticalRatesAt(c,forceEquilibrium=false){
+  if(!rateModelRawInitial||!rateModelRawTarget)return{f:0,b:0};
+  const initial=rateModelRawInitial;
+  const target=rateModelRawTarget;
+  // Ensure a clearly visible, non-zero common equilibrium rate on the
+  // classroom graph; both lines converge to exactly this shared value.
+  const rawTerminal=Math.max(0.42,Math.min(0.78,(target.f+target.b)/2));
+  // Choose a shared new-equilibrium rate that lies BETWEEN the two
+  // post-disturbance rates whenever they are separated. This guarantees the
+  // expected textbook trend: after adding N2/H2, forward falls while reverse
+  // rises; after adding NH3, reverse falls while forward rises.
+  const separation=Math.abs(initial.f-initial.b);
+  const minGap=Math.min(0.08,separation*0.25);
+  let terminal=rawTerminal;
+  if(initial.f>initial.b+1e-6){
+   terminal=Math.max(initial.b+minGap,Math.min(initial.f-minGap,rawTerminal));
+  }else if(initial.b>initial.f+1e-6){
+   terminal=Math.max(initial.f+minGap,Math.min(initial.b-minGap,rawTerminal));
+  }else{
+   terminal=(initial.f+initial.b)/2;
+  }
+  const t=typeof c.t==='number'?c.t:(simTime-chartTimeOrigin);
+  const endTime=equilibriumTime===null
+   ? rateSegmentStartT+10
+   : Math.max(rateSegmentStartT+0.5,equilibriumTime);
+  const duration=Math.max(0.5,endTime-rateSegmentStartT);
+  const u=Math.max(0,Math.min(1,(t-rateSegmentStartT)/duration));
+  const smooth=u*u*(3-2*u);
+  let f=initial.f+(terminal-initial.f)*smooth;
+  let b=initial.b+(terminal-initial.b)*smooth;
+  if(forceEquilibrium|| (equilibriumTime!==null&&t>=equilibriumTime)){
+   f=terminal;b=terminal;
+  }
+  return{f:Math.max(0,f),b:Math.max(0,b)};
+ }
+ function rateCurveAt(t){
+  return theoreticalRatesAt({t},false);
+ }
+ function rebuildRateHistoryAtEquilibrium(){
+  rateHistory=rateHistory.map(point=>{
+   if(point.t+1e-9<rateSegmentStartT)return point;
+   const r=rateCurveAt(point.t);
+   return{t:point.t,f:r.f,b:r.b};
+  });
+  if(rateHistory.length){
+   const last=rateHistory[rateHistory.length-1];
+   forwardRateNow=last.f;
+   backwardRateNow=last.b;
+  }
+  drawRateChart();
+ }
+ function recordRates(){
+  const c=history.length?history[history.length-1]:{t:simTime-chartTimeOrigin};
+  const rates=rateCurveAt(c.t);
+  forwardRateNow=rates.f;
+  backwardRateNow=rates.b;
+  const last=rateHistory[rateHistory.length-1];
+  if(last&&Math.abs(last.t-c.t)<1e-9){
+   last.f=rates.f;last.b=rates.b;
+  }else{
+   rateHistory.push({t:c.t,f:rates.f,b:rates.b});
+   if(rateHistory.length>180)rateHistory.shift();
+  }
+  $('forwardRate').textContent=forwardRateNow.toFixed(3);
+  $('backwardRate').textContent=backwardRateNow.toFixed(3);
+  drawRateChart();
+ }
+ function drawRateChart(){
+  const el=$('rateChart');if(!el)return;
+  const g=el.getContext('2d'),w=el.width,h=el.height;
+  const p={l:62,r:18,t:28,b:42};
+  g.clearRect(0,0,w,h);
+  g.fillStyle='#fff';g.fillRect(0,0,w,h);
+  if(rateChartSuppressed){
+   g.fillStyle='#64748b';g.font='13px system-ui';g.textAlign='center';g.textBaseline='middle';
+   g.fillText('Rate data not displayed for temperature / pressure changes',w/2,h/2);
+   return;
+  }
+
+  const pointCount=Math.min(rateHistory.length,history.length);
+  const observedMax=pointCount?Math.max(...rateHistory.slice(0,pointCount).map(v=>Math.max(v.f,v.b))):0;
+  // Pedagogical normalised scale: keep a readable 0–1.2 range for the
+  // standard run, but expand when a pressure/temperature jump exceeds it.
+  const ymax=Math.max(1.2,observedMax*1.12);
+  const x0=p.l,x1=w-p.r,y0=h-p.b,y1=p.t;
+
+  g.font='12px system-ui';g.textAlign='right';g.textBaseline='middle';
+  g.strokeStyle='#e6edf4';g.lineWidth=1;
+  for(let i=0;i<=4;i++){
+   const value=ymax*i/4,y=y0-(y0-y1)*i/4;
+   g.beginPath();g.moveTo(x0,y);g.lineTo(x1,y);g.stroke();
+   g.fillStyle='#526174';g.fillText(value.toFixed(ymax<2?2:1),x0-9,y);
+  }
+  g.strokeStyle='#536273';g.lineWidth=1.4;
+  g.beginPath();g.moveTo(x0,y1);g.lineTo(x0,y0);g.lineTo(x1,y0);g.stroke();
+
+  g.save();g.translate(17,(y0+y1)/2);g.rotate(-Math.PI/2);
+  g.textAlign='center';g.textBaseline='middle';g.fillStyle='#344256';
+  g.font='12px system-ui';g.fillText('Reaction rate (normalised units)',0,0);g.restore();
+
+  g.textAlign='center';g.textBaseline='top';g.fillStyle='#344256';
+  g.font='12px system-ui';g.fillText('Time (s)',(x0+x1)/2,h-25);
+
+  // Legend follows the conventional textbook red-forward / blue-reverse scheme.
+  g.font='bold 12px system-ui';g.textBaseline='middle';
+  g.textAlign='left';g.fillStyle='#e32626';g.fillText('━ Forward reaction',x0+8,13);
+  g.fillStyle='#253caa';g.fillText('━ Backward reaction',x0+154,13);
+
+  if(pointCount<2){
+   g.textAlign='center';g.fillStyle='#68778d';g.font='12px system-ui';
+   g.fillText('Run the simulation to plot reaction rates',(x0+x1)/2,(y0+y1)/2);return;
+  }
+  const t0=history[0].t,t1=Math.max(t0+1,history[pointCount-1].t);
+  const series=[['f','#e32626'],['b','#253caa']];
+  for(const [key,color] of series){
+   g.strokeStyle=color;g.lineWidth=3.2;g.lineJoin='round';g.lineCap='round';g.beginPath();
+   for(let i=0;i<pointCount;i++){
+    const v=rateHistory[i],sampleTime=history[i].t;
+    const x=x0+(sampleTime-t0)/(t1-t0)*(x1-x0);
+    const y=y0-Math.max(0,v[key])/ymax*(y0-y1);
+    if(i===0)g.moveTo(x,y);else g.lineTo(x,y);
+   }
+   g.stroke();
+  }
+  g.font='11px system-ui';g.textAlign='center';g.textBaseline='top';g.fillStyle='#526174';
+  for(let i=0;i<=4;i++){
+   const val=t0+(t1-t0)*i/4;
+   g.fillText(val.toFixed(0),x0+(x1-x0)*i/4,y0+6);
+  }
+ }
+ function update(){
+  const c=counts();
+  $('nCount').textContent=c.N;
+  $('hCount').textContent=c.H;
+  $('aCount').textContent=c.A;
+  $('totalCount').textContent=molecules.length;
+  $('atoms').textContent=(2*c.N+c.A)+' N + '+(2*c.H+3*c.A)+' H';
+  updateEquilibriumState();
+  $('status').textContent=eq?'● Dynamic equilibrium (Qp ≈ Kp)':'● Reaction in progress';
+  $('status').classList.toggle('eq',eq);
+  $('forwardRate').textContent=forwardRateNow.toFixed(3);
+  $('backwardRate').textContent=backwardRateNow.toFixed(3);
+ }
+ function frame(t){
+  if(!document.body.contains(canvas))return;const dt=Math.min(.025,(t-lastFrame)/1000||.016);lastFrame=t;
+  if(!paused){
+   simTime+=dt;
+   try{move(dt)}catch(err){console.error('Simulation update error:',err);paused=true;$('pause').textContent='▶ Resume'}
+   flashes.forEach(f=>f.t+=dt*1.8);flashes=flashes.filter(f=>f.t<1);
+   if(simTime-chartClock>=0.5){
+    recordChart();
+    updateEquilibriumState();
+    recordRates();
+    chartClock=simTime;
+    drawChart();
+   }else{
+    updateEquilibriumState();
+   }
+  }
+  draw();if(t-lastUI>300){try{update()}catch(err){console.error('Display update error:',err)}lastUI=t}requestAnimationFrame(frame);
+ }
+ function reset(){
+  molecules=[];fwd=0;rev=0;catalystVisible=false;
+  forwardRateNow=0;backwardRateNow=0;rateHistory=[];history=[];
+  rateModelScaleInitialized=false;rateModelScale=1;
+  rateSampleTime=0;rateSampleFwd=0;rateSampleRev=0;
+  $('addCatalyst').disabled=false;$('addCatalyst').textContent='＋ Add Fe catalyst';
+  $('removeCatalyst').disabled=true;
+  $('forwardRate').textContent='0.00';$('backwardRate').textContent='0.00';
+  eq=false;equilibriumTime=null;eqNext='forward';eqStartTime=0;eqStartFwd=0;eqStartRev=0;
+  shiftToProduct=false;lastPerturbationTime=0;paused=false;flashes=[];
+  simTime=0;chartTimeOrigin=0;chartClock=0;rateSegmentStartT=0;
+  const a=area();
+  for(let i=0;i<180;i++)molecules.push(create('N2',rand(a.x+18,a.x+a.w-18),rand(a.y+18,a.y+a.h-18)));
+  for(let i=0;i<540;i++)molecules.push(create('H2',rand(a.x+18,a.x+a.w-18),rand(a.y+18,a.y+a.h-18)));
+  lastReaction=performance.now();$('pause').textContent='Ⅱ Pause';
+  resetTheoreticalRateModel();update();
+ }
+ $('addN').onclick=()=>add('N2',90);
+ $('addCatalyst').onclick=()=>{
+  rateChartSuppressed=false;
+  // A catalyst increases both directional rates by the same factor.
+  // Capture the current common rate (or the current pair during relaxation)
+  // and scale both equally, so the two lines remain overlapping.
+  const commonBefore=(Math.abs(forwardRateNow-backwardRateNow)<0.025)
+    ?(forwardRateNow+backwardRateNow)/2:null;
+  const oldF=forwardRateNow,oldB=backwardRateNow;
+  catalystVisible=true;
+  $('addCatalyst').disabled=true;
+  $('addCatalyst').textContent='✓ Fe catalyst added';
+  $('removeCatalyst').disabled=false;
+  const factor=1.6;
+  resetTheoreticalRateModel({
+    f:Math.min(1.35,(commonBefore??oldF)*factor),
+    b:Math.min(1.35,(commonBefore??oldB)*factor)
+  });
+  // If already at equilibrium, catalyst changes speed, not composition:
+  // retain exact equality and do not trigger a new equilibrium shift.
+  if(commonBefore!==null){
+   rateModelRawTarget={...rateModelRawInitial};
+   forwardRateNow=rateModelRawInitial.f;
+   backwardRateNow=rateModelRawInitial.b;
+   recordRates();
+  }
+  draw();
+ };
+ $('removeCatalyst').onclick=()=>{
+  rateChartSuppressed=false;
+  const commonBefore=(Math.abs(forwardRateNow-backwardRateNow)<0.025)
+    ?(forwardRateNow+backwardRateNow)/2:null;
+  const oldF=forwardRateNow,oldB=backwardRateNow;
+  catalystVisible=false;
+  $('addCatalyst').disabled=false;
+  $('addCatalyst').textContent='＋ Add Fe catalyst';
+  $('removeCatalyst').disabled=true;
+  const factor=1/1.6;
+  resetTheoreticalRateModel({
+    f:Math.max(0,(commonBefore??oldF)*factor),
+    b:Math.max(0,(commonBefore??oldB)*factor)
+  });
+  if(commonBefore!==null){
+   rateModelRawTarget={...rateModelRawInitial};
+   forwardRateNow=rateModelRawInitial.f;
+   backwardRateNow=rateModelRawInitial.b;
+   recordRates();
+  }
+  draw();
+ };
+ $('addH').onclick=()=>add('H2',270);
+ $('addA').onclick=()=>add('NH3',180);
+ $('removeN').onclick=()=>remove('N2',90);
+ $('removeH').onclick=()=>remove('H2',270);
+ $('removeA').onclick=()=>remove('NH3',180);
+ $('reset').onclick=reset;
+ $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume':'Ⅱ Pause'};
+ $('temp').oninput=e=>{rateChartSuppressed=true;const oldTemp=temp;temp=+e.target.value;$('tempVal').textContent=temp+' K';const factor=Math.sqrt(temp/oldTemp);molecules.forEach(m=>{m.vx*=factor;m.vy*=factor});maintainTemperature();eq=false;lastReaction=performance.now();resetTheoreticalRateModel();update()};
+ $('pressure').oninput=e=>{
+  rateChartSuppressed=true;
+  pressure=+e.target.value;
+  $('pressureVal').textContent=pressure.toFixed(1)+' atm';
+  const a=area();
+  molecules.forEach(m=>m.y=Math.min(a.y+a.h-15,Math.max(a.y+15,m.y)));
+  // Isothermal compression: temperature and molecular speeds stay unchanged.
+  // Smaller volume raises all concentrations; for Δn(gas) = -2, Qc falls,
+  // so Qc < Kc and the forward reaction (towards NH3) is favoured.
+  eq=false;
+  lastReaction=performance.now();
+  updateEquilibriumState();
+  resetTheoreticalRateModel();
+  update();
+ };
+ reset();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
