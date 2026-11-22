@@ -632,7 +632,7 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;
   g.fillText('Time (s)',(x0+x1)/2,h-21);
   g.save();g.translate(12,(y0+y1)/2);g.rotate(-Math.PI/2);
   g.textAlign='center';g.textBaseline='middle';g.fillStyle='#68778d';
-  g.fillText('Rate (normalised units)',0,0);g.restore();
+  g.fillText('Concentration',0,0);g.restore();
   if(history.length<2){
    g.textAlign='center';g.fillText('Run the simulation to plot particle counts',(x0+x1)/2,(y0+y1)/2);return;
   }
